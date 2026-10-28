@@ -1,0 +1,112 @@
+{
+ "96.216.27.205": {
+  "asn": "7922",
+  "name": "COMCAST-7922 - Comcast Cable Communications, LLC",
+  "prefix": "96.192.0.0/11"
+ },
+ "24.153.88.66": {
+  "asn": "7922",
+  "name": "COMCAST-7922 - Comcast Cable Communications, LLC",
+  "prefix": "24.153.64.0/19"
+ },
+ "162.151.36.105": {
+  "asn": "7922",
+  "name": "COMCAST-7922 - Comcast Cable Communications, LLC",
+  "prefix": "162.148.0.0/14"
+ },
+ "68.86.188.61": {
+  "asn": "7922",
+  "name": "COMCAST-7922 - Comcast Cable Communications, LLC",
+  "prefix": "68.80.0.0/13"
+ },
+ "13.249.141.11": {
+  "asn": "16509",
+  "name": "AMAZON-02 - Amazon.com, Inc.",
+  "prefix": "13.249.136.0/21"
+ },
+ "68.86.188.93": {
+  "asn": "7922",
+  "name": "COMCAST-7922 - Comcast Cable Communications, LLC",
+  "prefix": "68.80.0.0/13"
+ },
+ "96.110.33.210": {
+  "asn": "7922",
+  "name": "COMCAST-7922 - Comcast Cable Communications, LLC",
+  "prefix": "96.96.0.0/12"
+ },
+ "141.101.73.163": {
+  "asn": "13335",
+  "name": "CLOUDFLARENET - Cloudflare, Inc.",
+  "prefix": "141.101.73.0/24"
+ },
+ "172.66.169.161": {
+  "asn": "13335",
+  "name": "CLOUDFLARENET - Cloudflare, Inc.",
+  "prefix": "172.66.160.0/20"
+ },
+ "4.16.71.246": {
+  "asn": "3356",
+  "name": "LEVEL3 - Level 3 Parent, LLC",
+  "prefix": "4.0.0.0/9"
+ },
+ "208.80.154.224": {
+  "asn": "14907",
+  "name": "WIKIMEDIA - Wikimedia Foundation Inc.",
+  "prefix": "208.80.154.0/23"
+ },
+ "96.110.40.61": {
+  "asn": "7922",
+  "name": "COMCAST-7922 - Comcast Cable Communications, LLC",
+  "prefix": "96.96.0.0/12"
+ },
+ "96.110.33.222": {
+  "asn": "7922",
+  "name": "COMCAST-7922 - Comcast Cable Communications, LLC",
+  "prefix": "96.96.0.0/12"
+ },
+ "192.0.66.108": {
+  "asn": "2635",
+  "name": "AUTOMATTIC - Automattic, Inc",
+  "prefix": "192.0.66.0/24"
+ },
+ "96.216.27.209": {
+  "asn": "7922",
+  "name": "COMCAST-7922 - Comcast Cable Communications, LLC",
+  "prefix": "96.192.0.0/11"
+ },
+ "24.153.88.74": {
+  "asn": "7922",
+  "name": "COMCAST-7922 - Comcast Cable Communications, LLC",
+  "prefix": "24.153.64.0/19"
+ },
+ "50.153.141.166": {
+  "asn": "7922",
+  "name": "COMCAST-7922 - Comcast Cable Communications, LLC",
+  "prefix": "50.128.0.0/9"
+ },
+ "142.251.150.4": {
+  "asn": "15169",
+  "name": "GOOGLE - Google LLC",
+  "prefix": "142.251.150.0/24"
+ },
+ "96.216.27.201": {
+  "asn": "7922",
+  "name": "COMCAST-7922 - Comcast Cable Communications, LLC",
+  "prefix": "96.192.0.0/11"
+ },
+ "64.156.73.170": {
+  "asn": "3356",
+  "name": "LEVEL3 - Level 3 Parent, LLC",
+  "prefix": "64.152.0.0/13"
+ },
+ "208.80.153.224": {
+  "asn": "14907",
+  "name": "WIKIMEDIA - Wikimedia Foundation Inc.",
+  "prefix": "208.80.152.0/23"
+ },
+ "142.251.154.4": {
+  "asn": "15169",
+  "name": "GOOGLE - Google LLC",
+  "prefix": "142.251.154.0/24"
+ }
+}
