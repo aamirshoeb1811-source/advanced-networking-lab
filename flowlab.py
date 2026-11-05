@@ -32,6 +32,11 @@ Students: copy it, change it, and comment it in your own words (purpose, logic, 
 # measures reachability but does not measure real-world network metrics like latency, jitter, or
 # actual link speed or bandwidth.
 
+# Fallback: If the kernel switch, ovsk, fails, I will use the userspace switch, datapath=user,
+# instead, because the Docker container route didn't work and if the kernel-level Open vSwitch
+# datapath isn't supported, falling back to userspace ensures the script and lab execution can
+# still successfully run.
+
 from mininet.net import Mininet
 from mininet.topo import SingleSwitchTopo
 from mininet.node import OVSSwitch
