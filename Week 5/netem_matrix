@@ -1,0 +1,186 @@
+#!/usr/bin/env python3
+"""
+Purpose:
+This script compares TCP CUBIC and BBR performance under different packet loss conditions.
+It measures throughput, retransmissions, and fairness between competing connections.
+
+Logic:
+The script tests both algorithms at 0%, 0.1%, 1%, 1.5%, and 2% packet loss.
+It runs each test three times and saves the results in JSON files.
+It also collects TCP information using ss -ti and compares deep and shallow queue performance.
+
+Assumptions:
+The system has WSL, Linux, Python, and iperf3 installed.
+Root or sudo permissions are available to configure network conditions.
+Both CUBIC and BBR are supported by the Linux kernel.
+
+Testing:
+The script is considered successful if all tests finish, JSON files are generated,
+and the summary table displays throughput, retransmissions, and Jain's fairness index.
+The results should also be consistent with the expected network behavior.
+
+Limits & Fallback:
+Results may vary depending on system resources and network conditions.
+The script cannot guarantee identical results in every run.
+If a test fails, I will check permissions, installed tools, and network configuration,
+then run the failed test manually.
+"""
+
+import json
+import os
+import statistics
+import subprocess
+import threading
+import time
+from functools import partial
+
+from mininet.net import Mininet
+from mininet.node import OVSSwitch
+from mininet.log import setLogLevel
+
+# ---- Test matrix (Step 4) -------------------------------------------------
+LOSSES = [0, 0.1, 1, 1.5, 2]   # percent; 1.5 is the student's own-choice value
+ALGOS = ['cubic', 'bbr']
+RUNS = 3                       # repeats per setting
+TEST_TIME = 30                 # seconds per iperf3 run
+RESULTS_DIR = 'exp5_results'
+
+
+def jain(rates):
+    """Jain's fairness index for a list of rates (1.0 = perfectly fair)."""
+    n = len(rates)
+    den = n * sum(r * r for r in rates)
+    return (sum(rates) ** 2) / den if den else 0.0
+
+
+def run_iperf_client(h1, seconds, port=5201, cc=None):
+    """Run one iperf3 client test from h1; return the parsed JSON."""
+    cmd = 'iperf3 -c 10.0.0.2 -p %d -t %d -J' % (port, seconds)
+    if cc:
+        cmd += ' -C %s' % cc    # per-connection congestion control (Step 5)
+    return json.loads(h1.cmd(cmd))
+
+
+def capture_ss(h1, delay_s, path):
+    """Wait delay_s, then save one 'ss -ti' snapshot taken inside h1."""
+    time.sleep(delay_s)
+    proc = h1.popen('ss -ti')
+    out, _ = proc.communicate()
+    if isinstance(out, bytes):
+        out = out.decode()
+    with open(path, 'w') as f:
+        f.write(out)
+
+
+def set_netem(s1, loss, limit=1000):
+    """(Re)install the bottleneck on the switch port toward h2."""
+    s1.cmd('tc qdisc replace dev s1-eth2 root netem delay 100ms '
+           'loss %s%% rate 20mbit limit %d' % (loss, limit))
+
+
+def main():
+    os.makedirs(RESULTS_DIR, exist_ok=True)
+    # BBR ships as a kernel module on this machine and is not loaded by
+    # default; without this line every bbr test would fail.
+    subprocess.call(['modprobe', 'tcp_bbr'])
+
+    # No OpenFlow controller is installed in this WSL, and none is needed:
+    # the switch only forwards, so it runs in standalone (learning) mode.
+    net = Mininet(controller=None,
+                  switch=partial(OVSSwitch, failMode='standalone'))
+    h1 = net.addHost('h1', ip='10.0.0.1/24')
+    h2 = net.addHost('h2', ip='10.0.0.2/24')
+    s1 = net.addSwitch('s1')
+    net.addLink(h1, s1)
+    net.addLink(h2, s1)
+    net.start()
+
+    try:
+        h2.cmd('iperf3 -s -D')          # server for the single-flow tests
+        results = {}
+        ss_taken = False
+
+        # ---- Step 4: the matrix -------------------------------------
+        for loss in LOSSES:
+            set_netem(s1, loss)
+            for cc in ALGOS:
+                # The sysctl must be set inside h1's own network
+                # namespace; a host-level sysctl would not affect it.
+                h1.cmd('sysctl -w net.ipv4.tcp_congestion_control=%s' % cc)
+                rates, retrans = [], []
+                for run in range(1, RUNS + 1):
+                    watcher = None
+                    if cc == 'bbr' and loss == 1 and not ss_taken:
+                        # Snapshot 'ss -ti' 8 s into one BBR run (Figure 5).
+                        watcher = threading.Thread(
+                            target=capture_ss,
+                            args=(h1, 8, os.path.join(
+                                RESULTS_DIR, 'ss_bbr_loss1.txt')))
+                        watcher.start()
+                        ss_taken = True
+                    data = run_iperf_client(h1, TEST_TIME)
+                    if watcher:
+                        watcher.join()
+                    sent = data['end']['sum_sent']
+                    rates.append(sent['bits_per_second'] / 1e6)
+                    retrans.append(sent['retransmits'])
+                    with open(os.path.join(
+                            RESULTS_DIR, '%s_loss%s_run%d.json'
+                            % (cc, loss, run)), 'w') as f:
+                        json.dump(data, f)
+                    print('%s loss %s%% run %d: %.2f Mb/s, %d retransmits'
+                          % (cc, loss, run, rates[-1], retrans[-1]),
+                          flush=True)
+                results[(loss, cc)] = (rates, retrans)
+
+        # ---- Step 5: CUBIC and BBR competing at 0% loss --------------
+        h2.cmd('iperf3 -s -p 5202 -D')   # second server for the 2nd flow
+        compete = {}
+        for limit in (1000, 250):        # deep queue, then shallow queue
+            set_netem(s1, 0, limit=limit)
+            procs = {}
+            for cc, port in (('cubic', 5201), ('bbr', 5202)):
+                procs[cc] = h1.popen(
+                    'iperf3 -c 10.0.0.2 -p %d -t 60 -J -C %s' % (port, cc))
+            rates = {}
+            for cc, proc in procs.items():
+                out, _ = proc.communicate()
+                if isinstance(out, bytes):
+                    out = out.decode()
+                data = json.loads(out)
+                rates[cc] = data['end']['sum_sent']['bits_per_second'] / 1e6
+                with open(os.path.join(
+                        RESULTS_DIR, 'compete_limit%d_%s.json'
+                        % (limit, cc)), 'w') as f:
+                    json.dump(data, f)
+            idx = jain(list(rates.values()))
+            compete[limit] = (rates, idx)
+            print('compete limit %d: cubic %.2f Mb/s, bbr %.2f Mb/s, '
+                  'Jain = %.3f'
+                  % (limit, rates['cubic'], rates['bbr'], idx), flush=True)
+
+        # ---- Summary --------------------------------------------------
+        print('\n=== SUMMARY (iperf3 sender) ===')
+        print('loss%   algo    mean Mb/s   min     max     mean retrans')
+        with open(os.path.join(RESULTS_DIR, 'summary.csv'), 'w') as csvf:
+            csvf.write('loss_pct,algo,mean_mbps,min_mbps,max_mbps,'
+                       'mean_retransmits\n')
+            for (loss, cc), (rates, retrans) in sorted(results.items()):
+                print('%-6s  %-6s  %8.2f  %6.2f  %6.2f  %8.1f'
+                      % (loss, cc, statistics.mean(rates), min(rates),
+                         max(rates), statistics.mean(retrans)))
+                csvf.write('%s,%s,%.2f,%.2f,%.2f,%.1f\n'
+                           % (loss, cc, statistics.mean(rates), min(rates),
+                              max(rates), statistics.mean(retrans)))
+        print('\n=== COMPETING RUNS (0% loss, 60 s) ===')
+        for limit, (rates, idx) in sorted(compete.items()):
+            print('limit %d: cubic %.2f Mb/s, bbr %.2f Mb/s, Jain = %.3f'
+                  % (limit, rates['cubic'], rates['bbr'], idx))
+    finally:
+        h2.cmd('pkill iperf3')
+        net.stop()
+
+
+if __name__ == '__main__':
+    setLogLevel('info')
+    main()
